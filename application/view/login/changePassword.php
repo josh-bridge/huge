@@ -18,6 +18,7 @@
             <label for="change_input_password_repeat">Repeat new password</label>
             <p><input id="change_input_password_repeat" class="reset_input" type="password"
                    name="user_password_repeat" pattern=".{6,}" required autocomplete="off" /></p>
+            <input type="hidden" name="csrf_token" value="<?= Csrf::makeToken(); ?>" />
             <input type="submit"  name="submit_new_password" value="Submit new password" />
         </form>
 

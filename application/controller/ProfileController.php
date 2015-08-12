@@ -16,9 +16,15 @@ class ProfileController extends Controller
      */
     public function index()
     {
-        $this->View->render('profile/index', array(
-            'users' => UserModel::getPublicProfilesOfAllUsers())
-        );
+        Auth::checkAuthentication();
+
+        if (Session::get("user_account_type") == 7) {
+            $this->View->render('profile/index', array(
+                'users' => UserModel::getPublicProfilesOfAllUsers())
+            );
+        } else {
+            $this->View->render('error/404');
+        }
     }
 
     /**

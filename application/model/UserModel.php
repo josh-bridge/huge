@@ -26,7 +26,6 @@ class UserModel
         $all_users_profiles = array();
 
         foreach ($query->fetchAll() as $user) {
-
             // all elements of array passed to Filter::XSSFilter for XSS sanitation, have a look into
             // application/core/Filter.php for more info on how to use. Removes (possibly bad) JavaScript etc from
             // the user's values
@@ -93,6 +92,27 @@ class UserModel
         $query->execute(array(':user_name_or_email' => $user_name_or_email, ':provider_type' => 'DEFAULT'));
 
         return $query->fetch();
+    }
+
+     /**
+     * @param $user_name_or_email
+     *
+     * @return mixed
+     */
+    public static function getUserDetailsByUserName($user_name)
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+        
+        $query = $database->prepare("SELECT * FROM users_details WHERE (user_id = :user_id) LIMIT 1");
+
+        $query->execute(array(':user_id' => Self::getUserIdByUsername($user_name)));
+
+        $result = $query->fetch();
+
+        if(!$result)
+            return false;
+
+        return $result;
     }
 
     /**
@@ -167,7 +187,7 @@ class UserModel
 
         $query = $database->prepare("UPDATE users SET user_email = :user_email WHERE user_id = :user_id LIMIT 1");
         $query->execute(array(':user_email' => $new_user_email, ':user_id' => $user_id));
-        $count = $query->rowCount();
+        $count =  $query->rowCount();
         if ($count == 1) {
             return true;
         }
@@ -266,6 +286,155 @@ class UserModel
         return false;
     }
 
+    public static function changeUserDetails(
+        $user_id, 
+        $user_firstname,
+        $user_lastname,
+        $user_dob,
+        $user_addrline1,
+        $user_addrline2,
+        $user_addrline3,
+        $user_postcode,
+        $user_city,
+        $user_country,
+        $user_telephone,
+        $user_mobile,
+        $user_business
+    ){
+        Auth::checkAuthentication();
+
+        if ($user_addrline2 == '')
+            $user_addrline2 = null;
+        if ($user_addrline3 == '')
+            $user_addrline3 = null;
+        if ($user_telephone == '')
+            $user_telephone = null;
+        if ($user_business == '')
+            $user_business = null;
+
+        if (Session::get('user_firstname') == $user_firstname &&
+            Session::get('user_lastname') == $user_lastname &&
+            Session::get('user_dob') == $user_dob &&
+            Session::get('user_addrline1') == $user_addrline1 &&
+            Session::get('user_addrline2') == $user_addrline2 &&
+            Session::get('user_addrline3') == $user_addrline3 &&
+            Session::get('user_postcode') == $user_postcode &&
+            Session::get('user_city') == $user_city &&
+            Session::get('user_country') == $user_country &&
+            Session::get('user_telephone') == $user_telephone &&
+            Session::get('user_mobile') == $user_mobile &&
+            Session::get('user_business') == $user_business
+        ) {
+            Session::add('feedback_negative', 'No fields were changed.');
+            return false;
+        }
+        
+        $validateResult = RegistrationModel::validateUserDetails($user_firstname,$user_lastname,$user_dob,$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business);
+
+        if(Session::get('reqfieldempty') == true) {
+            Session::add('feedback_negative', Text::get('FEEDBACK_REQUIRED_FIELDS_EMPTY'));
+            return false;
+        }
+
+        if(!$validateResult)
+            return false;
+        
+        $user_dob = RegistrationModel::returnFormattedDOB();
+
+        $result = Self::saveNewUserDetails($user_id,$user_firstname,$user_lastname,$user_dob,$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business);
+        
+        if($result) {
+            Session::add('feedback_positive', 'Details Updated Successfully.');
+            Session::set('user_details', array(
+                'user_firstname' => $user_firstname,
+                'user_lastname' => $user_lastname,
+                'user_dob' => $user_dob,
+                'user_addrline1' => $user_addrline1,
+                'user_addrline2' => $user_addrline2,
+                'user_addrline3' => $user_addrline3,
+                'user_postcode' => $user_postcode,
+                'user_city' => $user_city,
+                'user_country' => $user_country,
+                'user_telephone' => $user_telephone,
+                'user_mobile' => $user_mobile,
+                'user_business' => $user_business
+            ));
+            
+            return true;
+        }
+
+        Session::add('feedback_negative', 'SQL UPDATE failed');
+        return false;
+
+    }
+
+    public static function saveNewUserDetails($user_id,$user_firstname,$user_lastname,$user_dob,$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business) 
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        $sql = "UPDATE `users_details` SET 
+            user_firstname = :user_firstname,
+            user_lastname = :user_lastname,
+            user_dob = :user_dob,
+            user_addrline1 = :user_addrline1,
+            user_addrline2 = :user_addrline2,
+            user_addrline3 = :user_addrline3,
+            user_postcode = :user_postcode,
+            user_city = :user_city,
+            user_country = :user_country,
+            user_telephone = :user_telephone,
+            user_mobile = :user_mobile,
+            user_business = :user_business
+            WHERE user_id = :user_id LIMIT 1";
+
+        try {
+
+            $query = $database->prepare($sql);
+            $query->execute(array(
+                ':user_id' => $user_id,
+                ':user_firstname' => $user_firstname,
+                ':user_lastname' => $user_lastname,
+                ':user_dob' => $user_dob,
+                ':user_addrline1' => $user_addrline1,
+                ':user_addrline2' => $user_addrline2,
+                ':user_addrline3' => $user_addrline3,
+                ':user_postcode' => $user_postcode,
+                ':user_city' => $user_city,
+                ':user_country' => $user_country,
+                ':user_telephone' => $user_telephone,
+                ':user_mobile' => $user_mobile,
+                ':user_business' => $user_business
+            ));
+
+        } catch (PDOException $e) {
+            Session::add('print_r', $e);
+            return false;
+        }
+
+        if ($query->rowCount() == 1) {
+            return true;
+            Session::add('feedback_positive', 'query passed');
+        }
+            Session::add('feedback_negative', 'query failed');
+            Session::add('print_r', array(
+                $user_id, 
+                $user_firstname,
+                $user_lastname,
+                $user_dob,
+                $user_addrline1,
+                $user_addrline2,
+                $user_addrline3,
+                $user_postcode,
+                $user_city,
+                $user_country,
+                $user_telephone,
+                $user_mobile,
+                $user_business
+            ));
+
+        return false;
+    }
+
     /**
      * Gets the user's id
      *
@@ -299,7 +468,7 @@ class UserModel
     {
         $database = DatabaseFactory::getFactory()->getConnection();
 
-        $sql = "SELECT user_id, user_name, user_email, user_password_hash, user_active,user_deleted, user_suspension_timestamp, user_account_type,
+        $sql = "SELECT user_id, user_name, user_email, user_cardno, user_password_hash, user_active, user_deleted, user_suspension_timestamp, user_account_type,
                        user_failed_logins, user_last_failed_login
                   FROM users
                  WHERE (user_name = :user_name OR user_email = :user_name)
@@ -307,10 +476,12 @@ class UserModel
                  LIMIT 1";
         $query = $database->prepare($sql);
 
+
+
         // DEFAULT is the marker for "normal" accounts (that have a password etc.)
         // There are other types of accounts that don't have passwords etc. (FACEBOOK)
         $query->execute(array(':user_name' => $user_name, ':provider_type' => 'DEFAULT'));
-
+        
         // return one row (we only have one result or nothing)
         return $query->fetch();
     }
@@ -328,7 +499,7 @@ class UserModel
         $database = DatabaseFactory::getFactory()->getConnection();
 
         // get real token from database (and all other data)
-        $query = $database->prepare("SELECT user_id, user_name, user_email, user_password_hash, user_active,
+        $query = $database->prepare("SELECT user_id, user_name, user_email, user_cardno, user_password_hash, user_active,
                                           user_account_type,  user_has_avatar, user_failed_logins, user_last_failed_login
                                      FROM users
                                      WHERE user_id = :user_id
@@ -340,4 +511,128 @@ class UserModel
         // return one row (we only have one result or nothing)
         return $query->fetch();
     }
+
+     /**
+     * Gets the user's id by user's card no.
+     *
+     * @param $user_cardno string User's name
+     *
+     * @return mixed Returns false if user does not exist, returns object with user_id when user exists
+     */
+    public static function getUserIDByCardNo($user_cardno)
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        $sql = "SELECT user_id FROM users 
+                    WHERE (user_cardno = :user_cardno)
+                       AND user_provider_type = :provider_type
+                 LIMIT 1";
+        $query = $database->prepare($sql);
+
+        // DEFAULT is the marker for "normal" accounts (that have a password etc.)
+        // There are other types of accounts that don't have passwords etc. (FACEBOOK)
+        $query->execute(array(':user_cardno' => $user_cardno, ':provider_type' => 'DEFAULT'));
+        
+        // return one row (we only have one result or nothing)
+        return $query->fetch();
+    }
+
+    /**
+     * Gets the user's data by user's id
+     *
+     * @param $user_id
+     *
+     * @return mixed Returns false if user does not exist, returns object with user's data when user exists
+     */
+    public static function getUserDataByUserId($user_id)
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        // get real token from database (and all other data)
+        $query = $database->prepare("SELECT user_id, user_name, user_email, user_cardno, user_password_hash, user_active,
+                                          user_account_type,  user_has_avatar, user_failed_logins, user_last_failed_login
+                                     FROM users
+                                     WHERE user_id = :user_id
+                                       AND user_provider_type = :provider_type LIMIT 1");
+        $query->execute(array(':user_id' => $user_id, ':provider_type' => 'DEFAULT'));
+
+        // return one row (we only have one result or nothing)
+        return $query->fetch();
+    }
+
+    /**
+     * Search users via name
+     *
+     * @param $searchTerm
+     *
+     * @return mixed Returns false if user does not exist, returns object with user's data when user exists
+     */
+    public static function searchUsersByName($searchTerm, $results = null)
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        if($results == null) {
+            $results = 5;
+        }
+
+        $searchTerm = "%".$searchTerm."%";
+
+        // get real token from database (and all other data)
+        $query = $database->prepare("SELECT user_id, user_firstname, user_lastname
+                                     FROM users_details
+                                     WHERE user_firstname LIKE :searchTerm 
+                                        OR user_lastname LIKE :searchTerm
+                                       LIMIT :results");
+        $query->bindParam(':searchTerm', $searchTerm, PDO::PARAM_STR);
+        $query->bindParam(':results', $results, PDO::PARAM_INT);
+        $query->execute();
+
+        // return one row (we only have one result or nothing)
+        
+        $search_results = array();
+        $i = 0;
+
+        foreach ($query->fetchAll() as $user) {
+            // all elements of array passed to Filter::XSSFilter for XSS sanitation, have a look into
+            // application/core/Filter.php for more info on how to use. Removes (possibly bad) JavaScript etc from
+            // the user's values
+            array_walk_recursive($user, 'Filter::XSSFilter');
+
+            $search_results[$i] = new stdClass();
+            $search_results[$i]->user_id = $user->user_id;
+            $search_results[$i]->user_firstname = $user->user_firstname;
+            $search_results[$i]->user_lastname = $user->user_lastname;
+            $i++;
+        }
+
+        return $search_results;
+    } 
+ 
+  /**
+     * Gets the user's data by user's id
+     *
+     * @param $user_id
+     *
+     * @return mixed Returns false if user does not exist, returns object with user's data when user exists
+     */
+    public static function getUserDataByRefCode($user_refcode)
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        // get real token from database (and all other data)
+        $query = $database->prepare("SELECT user_id, user_name, user_cardno, user_has_avatar
+                                     FROM users
+                                     WHERE BINARY user_refcode = :user_refcode
+                                       AND user_provider_type = :provider_type LIMIT 1");
+        $query->execute(array(':user_refcode' => $user_refcode, ':provider_type' => 'DEFAULT'));
+
+        // return one row (we only have one result or nothing)
+        $result = $query->fetch();
+
+        if(!$result)
+            return false;
+
+        return $result;
+    }
+
 }

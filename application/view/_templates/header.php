@@ -8,21 +8,18 @@
     <link rel="icon" href="data:;base64,=">
     <!-- CSS -->
     <link rel="stylesheet" href="<?php echo Config::get('URL'); ?>css/style.css" />
+    <link rel="stylesheet" href="<?php echo Config::get('URL'); ?>css/jquery-ui.theme.min.css" />
 </head>
 <body>
     <!-- wrapper, to center website -->
-    <div class="wrapper">
-
-        <!-- logo -->
-        <div class="logo"></div>
-
+    <div class="navwrapper">
+        <div class="navigation logo"> 
+            <a href="/huge" title="index">LOGO</a>
+        </div>
         <!-- navigation -->
-        <ul class="navigation">
+        <ul class="navigation right">
             <li <?php if (View::checkForActiveController($filename, "index")) { echo ' class="active" '; } ?> >
-                <a href="<?php echo Config::get('URL'); ?>index/index">Index</a>
-            </li>
-            <li <?php if (View::checkForActiveController($filename, "profile")) { echo ' class="active" '; } ?> >
-                <a href="<?php echo Config::get('URL'); ?>profile/index">Profiles</a>
+                <a href="<?php echo Config::get('URL'); ?>">Home</a>
             </li>
             <?php if (Session::userIsLoggedIn()) { ?>
                 <li <?php if (View::checkForActiveController($filename, "dashboard")) { echo ' class="active" '; } ?> >
@@ -40,11 +37,20 @@
                     <a href="<?php echo Config::get('URL'); ?>login/register">Register</a>
                 </li>
             <?php } ?>
-        </ul>
 
         <!-- my account -->
-        <ul class="navigation right">
-        <?php if (Session::userIsLoggedIn()) : ?>
+
+            <?php if (Session::userIsLoggedIn()) : ?>
+            <?php if (Session::get("user_account_type") == 7) : ?>
+            <li <?php if (View::checkForActiveController($filename, "admin")) {echo ' class="active" ';} ?> >
+                <a href="<?php echo Config::get('URL'); ?>admin/">Admin</a>
+                <ul class="navigation-submenu">
+                    <li <?php if (View::checkForActiveController($filename, "profile")) { echo ' class="active" '; } ?> >
+                        <a href="<?php echo Config::get('URL'); ?>profile/index">Profile list</a>
+                    </li>
+                </ul>
+            </li>
+            <?php endif; ?>
             <li <?php if (View::checkForActiveController($filename, "login")) { echo ' class="active" '; } ?> >
                 <a href="<?php echo Config::get('URL'); ?>login/showprofile">My Account</a>
                 <ul class="navigation-submenu">
@@ -64,16 +70,15 @@
                         <a href="<?php echo Config::get('URL'); ?>login/changePassword">Change Password</a>
                     </li>
                     <li <?php if (View::checkForActiveController($filename, "login")) { echo ' class="active" '; } ?> >
-                        <a href="<?php echo Config::get('URL'); ?>login/logout">Logout</a>
+                        <a href="<?php echo Config::get('URL'); ?>login/changeUserDetails">Change User Details</a>
                     </li>
                 </ul>
             </li>
-            <?php if (Session::get("user_account_type") == 7) : ?>
-                <li <?php if (View::checkForActiveController($filename, "admin")) {
-                    echo ' class="active" ';
-                } ?> >
-                    <a href="<?php echo Config::get('URL'); ?>admin/">Admin</a>
-                </li>
-            <?php endif; ?>
+            <li>
+                <a href="<?php echo Config::get('URL'); ?>login/logout">Logout</a>
+            </li>
         <?php endif; ?>
         </ul>
+
+    </div>
+        <div class="wrapper">

@@ -93,6 +93,13 @@ class View
         // delete these messages (as they are not needed anymore and we want to avoid to show them twice
         Session::set('feedback_positive', null);
         Session::set('feedback_negative', null);
+
+        if (Session::get('reqfieldempty') != null) 
+            Session::remove('reqfieldempty');
+
+        if(Session::get('print_r') != null)
+            Session::remove('print_r');
+
     }
 
     /**
