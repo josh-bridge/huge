@@ -81,6 +81,31 @@ class View
         echo json_encode($data);
     }
 
+    public function renderImage($file, $cacheLength = null)
+    {
+        if($cacheLength === null) $cacheLength = 86400; //24 hours default
+        $host = (Config::get('HTTPS_ENABLED') ? 'https://' : 'http://').$_SERVER['HTTP_HOST'];
+
+        if (strpos($file, $host) === false) $file = $host.$file;
+
+        $filename = basename($file);
+        $file_extension = strtolower(substr(strrchr($filename,"."),1));
+
+        switch( $file_extension ) {
+            case "gif": $ctype="image/gif"; break;
+            case "png": $ctype="image/png"; break;
+            case "jpeg":
+            case "jpg": $ctype="image/jpeg"; break;
+            default:
+        }
+
+        header('Pragma: public');
+        header('Cache-Control: max-age=86400');
+        header('Expires: '. gmdate('D, d M Y H:i:s \G\M\T', time() + $cacheLength));
+        header('Content-type: ' . $ctype);
+        readfile($file);
+    }
+
     /**
      * renders the feedback messages into the view
      */

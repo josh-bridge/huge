@@ -37,7 +37,7 @@ class UserModel
             $all_users_profiles[$user->user_id]->user_email = $user->user_email;
             $all_users_profiles[$user->user_id]->user_active = $user->user_active;
             $all_users_profiles[$user->user_id]->user_deleted = $user->user_deleted;
-            $all_users_profiles[$user->user_id]->user_avatar_link = (Config::get('USE_GRAVATAR') ? AvatarModel::getGravatarLinkByEmail($user->user_email) : AvatarModel::getPublicAvatarFilePathOfUser($user->user_has_avatar, $user->user_id));
+            $all_users_profiles[$user->user_id]->user_avatar_link = AvatarModel::getPublicAvatarOfUser($user->user_name, $user->user_has_avatar);
         }
 
         return $all_users_profiles;
@@ -63,7 +63,7 @@ class UserModel
             if (Config::get('USE_GRAVATAR')) {
                 $user->user_avatar_link = AvatarModel::getGravatarLinkByEmail($user->user_email);
             } else {
-                $user->user_avatar_link = AvatarModel::getPublicAvatarFilePathOfUser($user->user_has_avatar, $user->user_id);
+                $user->user_avatar_link = AvatarModel::getPublicAvatarOfUser($user->user_name, $user->user_has_avatar);
             }
         } else {
             Session::add('feedback_negative', Text::get('FEEDBACK_USER_DOES_NOT_EXIST'));
@@ -303,68 +303,63 @@ class UserModel
     ){
         Auth::checkAuthentication();
 
-        if ($user_addrline2 == '')
-            $user_addrline2 = null;
-        if ($user_addrline3 == '')
-            $user_addrline3 = null;
-        if ($user_telephone == '')
-            $user_telephone = null;
-        if ($user_business == '')
-            $user_business = null;
+        if ($user_addrline2 == '') $user_addrline2 = null;
+        if ($user_addrline3 == '') $user_addrline3 = null;
+        if ($user_telephone == '') $user_telephone = null;
+        if ($user_business == '') $user_business = null;
 
-        if (Session::get('user_firstname') == $user_firstname &&
-            Session::get('user_lastname') == $user_lastname &&
-            Session::get('user_dob') == $user_dob &&
-            Session::get('user_addrline1') == $user_addrline1 &&
-            Session::get('user_addrline2') == $user_addrline2 &&
-            Session::get('user_addrline3') == $user_addrline3 &&
-            Session::get('user_postcode') == $user_postcode &&
-            Session::get('user_city') == $user_city &&
-            Session::get('user_country') == $user_country &&
-            Session::get('user_telephone') == $user_telephone &&
-            Session::get('user_mobile') == $user_mobile &&
-            Session::get('user_business') == $user_business
+
+
+        $user_details_current = Session::get('user_details');
+
+        if ($user_details_current['user_firstname'] == $user_firstname &&
+            $user_details_current['user_lastname'] == $user_lastname &&
+            $user_details_current['user_dob'] == $user_dob &&
+            $user_details_current['user_addrline1'] == $user_addrline1 &&
+            $user_details_current['user_addrline2'] == $user_addrline2 &&
+            $user_details_current['user_addrline3'] == $user_addrline3 &&
+            $user_details_current['user_postcode'] == $user_postcode &&
+            $user_details_current['user_city'] == $user_city &&
+            $user_details_current['user_country'] == $user_country &&
+            $user_details_current['user_telephone'] == $user_telephone &&
+            $user_details_current['user_mobile'] == $user_mobile &&
+            $user_details_current['user_business'] == $user_business
         ) {
             Session::add('feedback_negative', 'No fields were changed.');
             return false;
         }
         
-        $validateResult = RegistrationModel::validateUserDetails($user_firstname,$user_lastname,$user_dob,$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business);
+        $validateUserDetails = RegistrationModel::validateUserDetails($user_firstname,$user_lastname,$user_dob,$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business);
 
-        if(Session::get('reqfieldempty') == true) {
-            Session::add('feedback_negative', Text::get('FEEDBACK_REQUIRED_FIELDS_EMPTY'));
+        $result['user_details_validate'] = $validateUserDetails['result'];
+
+        if($result['user_details_validate']) {
+            if(Self::saveNewUserDetails($user_id,$user_firstname,$user_lastname,$validateUserDetails['new_data']['user_dob'],$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business)) {
+                Session::add('feedback_positive', 'Details Updated Successfully.');
+                Session::set('user_details', array(
+                    'user_firstname' => $user_firstname,
+                    'user_lastname' => $user_lastname,
+                    'user_dob' => $user_dob,
+                    'user_addrline1' => $user_addrline1,
+                    'user_addrline2' => $user_addrline2,
+                    'user_addrline3' => $user_addrline3,
+                    'user_postcode' => $user_postcode,
+                    'user_city' => $user_city,
+                    'user_country' => $user_country,
+                    'user_telephone' => $user_telephone,
+                    'user_mobile' => $user_mobile,
+                    'user_business' => $user_business
+                ));
+                return true;
+            }             
+            Session::add('feedback_negative', 'SQL UPDATE failed');
+            return false;  
+        } else {
+            if(null === Session::get('form_feedback_user_password')) Session::add('form_feedback_user_password', 'formredo');
+            if(in_array('reqfieldempty', $validateUserDetails['errors'])) Session::add('feedback_negative', Text::get('FEEDBACK_REQUIRED_FIELDS_EMPTY'));
+
             return false;
         }
-
-        if(!$validateResult)
-            return false;
-        
-        $user_dob = RegistrationModel::returnFormattedDOB();
-
-        $result = Self::saveNewUserDetails($user_id,$user_firstname,$user_lastname,$user_dob,$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business);
-        
-        if($result) {
-            Session::add('feedback_positive', 'Details Updated Successfully.');
-            Session::set('user_details', array(
-                'user_firstname' => $user_firstname,
-                'user_lastname' => $user_lastname,
-                'user_dob' => $user_dob,
-                'user_addrline1' => $user_addrline1,
-                'user_addrline2' => $user_addrline2,
-                'user_addrline3' => $user_addrline3,
-                'user_postcode' => $user_postcode,
-                'user_city' => $user_city,
-                'user_country' => $user_country,
-                'user_telephone' => $user_telephone,
-                'user_mobile' => $user_mobile,
-                'user_business' => $user_business
-            ));
-            
-            return true;
-        }
-
-        Session::add('feedback_negative', 'SQL UPDATE failed');
-        return false;
 
     }
 
@@ -455,6 +450,28 @@ class UserModel
 
         // return one row (we only have one result or nothing)
         return $query->fetch()->user_id;
+    }
+
+     /**
+     * Gets the username
+     *
+     * @param $user_id
+     *
+     * @return mixed
+     */
+    public static function getUsernameByUserId($user_id)
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        $sql = "SELECT user_name FROM users WHERE user_id = :user_id AND user_provider_type = :provider_type LIMIT 1";
+        $query = $database->prepare($sql);
+
+        // DEFAULT is the marker for "normal" accounts (that have a password etc.)
+        // There are other types of accounts that don't have passwords etc. (FACEBOOK)
+        $query->execute(array(':user_id' => $user_id, ':provider_type' => 'DEFAULT'));
+
+        // return one row (we only have one result or nothing)
+        return $query->fetch()->user_name;
     }
 
     /**
@@ -609,9 +626,9 @@ class UserModel
     } 
  
   /**
-     * Gets the user's data by user's id
+     * Gets the user's data by user's ref code
      *
-     * @param $user_id
+     * @param $user_refcode
      *
      * @return mixed Returns false if user does not exist, returns object with user's data when user exists
      */
@@ -633,6 +650,101 @@ class UserModel
             return false;
 
         return $result;
+    }
+
+      /**
+     * Gets the user's data by user_refcode
+     *
+     * @param $user_refcode
+     *
+     * @return mixed Returns false if user does not exist, returns object with user's data when user exists
+     */
+    public static function getUserIdByRefCode($user_refcode)
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        // get real token from database (and all other data)
+        $query = $database->prepare("SELECT user_id
+                                     FROM users
+                                     WHERE BINARY user_refcode = :user_refcode
+                                       AND user_provider_type = :provider_type LIMIT 1");
+        $query->execute(array(':user_refcode' => $user_refcode, ':provider_type' => 'DEFAULT'));
+
+        // return one row (we only have one result or nothing)
+        $result = $query->fetch();
+
+        if(!$result)
+            return false;
+
+        return $result;
+    }
+
+     /**
+     * Gets the user's data by user_id
+     *
+     * @param $user_id
+     *
+     * @return mixed Returns false if user does not exist, returns object with user's data when user exists
+     */
+    public static function getRefCodeByUserID($user_id)
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        // get real token from database (and all other data)
+        $query = $database->prepare("SELECT user_refcode
+                                     FROM users
+                                     WHERE user_id = :user_id
+                                       AND user_provider_type = :provider_type LIMIT 1");
+        $query->execute(array(':user_id' => $user_id, ':provider_type' => 'DEFAULT'));
+
+        // return one row (we only have one result or nothing)
+        $result = $query->fetch();
+
+        if(!$result)
+            return false;
+
+        return $result->user_refcode;
+    }
+
+    public static function thisUserHasAvatar($user_id)
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        // get real token from database (and all other data)
+        $query = $database->prepare("SELECT user_has_avatar
+                                     FROM users
+                                     WHERE user_id = :user_id
+                                       AND user_provider_type = :provider_type LIMIT 1");
+        $query->execute(array(':user_id' => $user_id, ':provider_type' => 'DEFAULT'));
+
+        // return one row (we only have one result or nothing)
+        $result = $query->fetch();
+
+        return $result->user_has_avatar;
+    }
+
+
+
+    public static function userHasAvatar($user_id)
+    {
+        if($user_id == Session::get('user_id')) {
+            $user_has_avatar = Session::get('user_has_avatar');
+            if ($user_has_avatar == 0 || $user_has_avatar == 1) return $user_has_avatar;
+        }
+        
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        // get real token from database (and all other data)
+        $query = $database->prepare("SELECT user_has_avatar
+                                     FROM users
+                                     WHERE user_id = :user_id
+                                       AND user_provider_type = :provider_type LIMIT 1");
+        $query->execute(array(':user_id' => $user_id, ':provider_type' => 'DEFAULT'));
+
+        // return one row (we only have one result or nothing)
+        $result = $query->fetch();
+
+        return $result->user_has_avatar;
     }
 
 }

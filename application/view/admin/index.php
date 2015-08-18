@@ -39,9 +39,9 @@
                         <td><?= $user->user_email; ?></td>
                         <td><?= ($user->user_active == 0 ? 'No' : 'Yes'); ?></td>
                         <td>
-                            <a href="<?= Config::get('URL') . 'profile/showProfile/' . $user->user_id; ?>">Profile</a>
+                            <a href="<?= Config::get('DOC_ROOT') . 'profile/showProfile/' . $user->user_id; ?>">Profile</a>
                         </td>
-                        <form action="<?= config::get("URL"); ?>admin/actionAccountSettings" method="post">
+                        <form action="<?= config::get('DOC_ROOT'); ?>admin/actionAccountSettings" method="post">
                             <td><input type="number" name="suspension" /></td>
                             <td><input type="checkbox" name="softDelete" <?php if ($user->user_deleted) { ?> checked <?php } ?> /></td>
                             <td>

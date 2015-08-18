@@ -2,28 +2,20 @@
 
 class AvatarModel
 {
-	/**
-	 * Gets a gravatar image link from given email address
-	 *
-	 * Gravatar is the #1 (free) provider for email address based global avatar hosting.
-	 * The URL (or image) returns always a .jpg file ! For deeper info on the different parameter possibilities:
-	 * @see http://gravatar.com/site/implement/images/
-	 * @source http://gravatar.com/site/implement/images/php/
-	 *
-	 * This method will return something like http://www.gravatar.com/avatar/79e2e5b48aec07710c08d50?s=80&d=mm&r=g
-	 * Note: the url does NOT have something like ".jpg" ! It works without.
-	 *
-	 * Set the configs inside the application/config/ files.
-	 *
-	 * @param string $email The email address
-	 * @return string
-	 */
-	public static function getGravatarLinkByEmail($email)
-	{
-		return 'http://www.gravatar.com/avatar/' .
-		       md5( strtolower( trim( $email ) ) ) .
-		       '?s=' . Config::get('AVATAR_SIZE') . '&d=' . Config::get('GRAVATAR_DEFAULT_IMAGESET') . '&r=' . Config::get('GRAVATAR_RATING');
-	}
+    /**
+     * Gets the user's avatar file path
+     * @param int $user_has_avatar Marker from database
+     * @param int $user_id User's id
+     * @return string Avatar file path
+     */
+    public static function getPublicAvatarOfUser($user_name, $user_has_avatar = null)
+    {
+        if($user_has_avatar === null) $user_has_avatar = UserModel::userHasAvatar($user_id);
+
+        if($user_has_avatar == 0) return Config::get('DOC_ROOT') . Config::get('PATH_AVATARS_PUBLIC') . Config::get('AVATAR_DEFAULT_IMAGE');
+
+        return Config::get('DOC_ROOT') . 'image/user/' . $user_name.'?1';
+    }
 
 	/**
 	 * Gets the user's avatar file path
@@ -31,13 +23,15 @@ class AvatarModel
 	 * @param int $user_id User's id
 	 * @return string Avatar file path
 	 */
-	public static function getPublicAvatarFilePathOfUser($user_has_avatar, $user_id)
+	public static function getPublicAvatarFilePathOfUser($user_id, $user_has_avatar = null)
 	{
+        if($user_has_avatar === null) $user_has_avatar = UserModel::userHasAvatar($user_id);
+
 		if ($user_has_avatar) {
-			return Config::get('URL') . Config::get('PATH_AVATARS_PUBLIC') . $user_id . '.jpg';
+			return Config::get('DOC_ROOT') . Config::get('PATH_AVATARS_PUBLIC') . $user_id . '.jpg';
 		}
 
-		return Config::get('URL') . Config::get('PATH_AVATARS_PUBLIC') . Config::get('AVATAR_DEFAULT_IMAGE');
+		return Config::get('DOC_ROOT') . Config::get('PATH_AVATARS_PUBLIC') . Config::get('AVATAR_DEFAULT_IMAGE');
 	}
 
 	/**
@@ -47,16 +41,11 @@ class AvatarModel
 	 */
 	public static function getPublicUserAvatarFilePathByUserId($user_id)
 	{
-		$database = DatabaseFactory::getFactory()->getConnection();
-
-		$query = $database->prepare("SELECT user_has_avatar FROM users WHERE user_id = :user_id LIMIT 1");
-		$query->execute(array(':user_id' => $user_id));
-
-		if ($query->fetch()->user_has_avatar) {
-			return Config::get('URL') . Config::get('PATH_AVATARS_PUBLIC') . $user_id . '.jpg';
+		if (UserModel::userHasAvatar($user_id)) {
+			return Config::get('DOC_ROOT') . Config::get('PATH_AVATARS_PUBLIC') . $user_id . '.jpg';
 		}
 
-		return Config::get('URL') . Config::get('PATH_AVATARS_PUBLIC') . Config::get('AVATAR_DEFAULT_IMAGE');
+		return Config::get('DOC_ROOT') . Config::get('PATH_AVATARS_PUBLIC') . Config::get('AVATAR_DEFAULT_IMAGE');
 	}
 
 	/**
@@ -72,7 +61,8 @@ class AvatarModel
 			$target_file_path = Config::get('PATH_AVATARS') . Session::get('user_id');
 			self::resizeAvatarImage($_FILES['avatar_file']['tmp_name'], $target_file_path, Config::get('AVATAR_SIZE'), Config::get('AVATAR_SIZE'), Config::get('AVATAR_JPEG_QUALITY'));
 			self::writeAvatarToDatabase(Session::get('user_id'));
-			Session::set('user_avatar_file', self::getPublicUserAvatarFilePathByUserId(Session::get('user_id')));
+            unlink(Self::getPublicAvatarOfUser(Session::get('user_id')));
+            Session::set('user_avatar_file', Self::getPublicAvatarOfUser(Session::get('user_name'), 1));
 			Session::add('feedback_positive', Text::get('FEEDBACK_AVATAR_UPLOAD_SUCCESSFUL'));
 		}
 	}
@@ -234,7 +224,8 @@ class AvatarModel
         $sth->execute();
 
         if ($sth->rowCount() == 1) {
-            Session::set('user_avatar_file', self::getPublicUserAvatarFilePathByUserId($userId));
+            Session::set('user_has_avatar', 0);
+            Session::set('user_avatar_file', Self::getPublicAvatarOfUser(Session::get('user_name'), 0));
             Session::add("feedback_positive", Text::get("FEEDBACK_AVATAR_IMAGE_DELETE_SUCCESSFUL"));
             return true;
         } else {

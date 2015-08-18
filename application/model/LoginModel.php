@@ -222,6 +222,7 @@ class LoginModel
         Session::set('user_id', $user_id);
         Session::set('user_name', $user_name);
         Session::set('user_email', $user_email);
+        Session::set('user_refcode', UserModel::getRefCodeByUserID($user_id));
         Session::set('user_account_type', $user_account_type);
         Session::set('user_provider_type', 'DEFAULT');
         Session::set('user_details', array(
@@ -240,8 +241,9 @@ class LoginModel
         ));
 
         // get and set avatars
-        Session::set('user_avatar_file', AvatarModel::getPublicUserAvatarFilePathByUserId($user_id));
-        Session::set('user_gravatar_image_url', AvatarModel::getGravatarLinkByEmail($user_email));
+        $user_has_avatar = UserModel::thisUserHasAvatar($user_id);
+        Session::set('user_has_avatar', $user_has_avatar);
+        Session::set('user_avatar_file', AvatarModel::getPublicAvatarOfUser($user_name, $user_has_avatar));
 
         // finally, set user as logged-in
         Session::set('user_logged_in', true);
@@ -400,5 +402,15 @@ class LoginModel
     public static function isUserLoggedIn()
     {
         return Session::userIsLoggedIn();
+    }
+
+    public static function secureConnection()
+    {
+        if(Config::get('HTTPS_ENABLED') && ($_SERVER['SERVER_PORT'] != Config::get('HTTPS_PORT') || (isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] == 'off' || empty($_SERVER['HTTPS']))))) {
+            $redirect = "https://".$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
+            header("HTTP/1.1 301 Moved Permanently");
+            header("Location: ".$redirect);
+        }
+        return true;
     }
 }

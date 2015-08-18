@@ -1,4 +1,4 @@
-<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+<script src="https://code.jquery.com/jquery-latest.min.js"></script>
 <!--<script src="http://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>-->
 <div class="container" style="position: relative">
     <!-- echo out the system feedback (error and success messages) -->
@@ -6,7 +6,7 @@
 
     <!-- login box on left side -->        
 
-    <form method="post" action="<?php echo Config::get('URL'); ?>login/register_action" onSubmit="saveItems()">
+    <form method="post" action="<?php echo Config::get('HTTPS_URL'); ?>login/register_action" onSubmit="saveItems()">
         <div class="login-box" style="width: 50%; display: block;">
             <h2>Register a new account</h2>
 
@@ -17,7 +17,7 @@
                 <label for="user_name">Username: <span class="red-text">(*)</span></label>
                     <input id="user_name" class="<?= $this->form_feedback_user_name ?>" type="text" pattern="^[a-zA-Z][a-zA-Z0-9-_\.]{1,64}" name="user_name" maxlength="64" onblur="saveItems()" placeholder="([letters/numbers/_/-/.] only, 2-64 chars)" required />
                 <label for="user_email">Email: <span class="red-text">(*)</span></label>
-                    <input id="user_email" class="<?= $this->form_feedback_user_email; ?>" type="email" name="user_email" placeholder="(Must be a valid address)" onblur="saveItems()" required />
+                    <input id="user_email" class="<?= $this->form_feedback_user_email; ?>" type="email" name="user_email" placeholder="(Must be a valid address)" onblur="saveItems()" maxlength="255" required />
                 <label for="user_password_new">Password: <span class="red-text">(*)</span></label>
                     <input id="user_password_new" class="<?= $this->form_feedback_user_password ?>" type="password" name="user_password_new" pattern=".{6,}" placeholder="(6+ characters)" onblur="saveItems()" required autocomplete="off" />
                 <label for="user_password_repeat">Repeat Password: <span class="red-text">(*)</span></label>
@@ -49,13 +49,13 @@
 
                 <!-- show the captcha by calling the login/showCaptcha-method in the src attribute of the img tag -->
                 <label for="captcha_text">Are you human? <span class="red-text">(*)</span></label>
-                <img id="captcha" src="<?php echo Config::get('URL'); ?>login/showCaptcha" />
+                <img id="captcha" src="<?php echo Config::get('HTTPS_URL'); ?>login/showCaptcha" />
                 <input type="text" id="captcha_text" class="<?= $this->form_feedback_error_captcha ?>" name="captcha" placeholder="Please enter above characters" required />
 
                 <!-- quick & dirty captcha reloader -->
                 <a href="#" style="display: block; font-size: 11px; margin: 5px 0 15px 0; text-align: center"
-                   onclick="document.getElementById('captcha').src = '<?php echo Config::get('URL'); ?>login/showCaptcha?' + Math.random(); return false">Reload Captcha</a>
-
+                   onclick="document.getElementById('captcha').src = '<?php echo Config::get('HTTPS_URL'); ?>login/showCaptcha?' + Math.random(); return false">Reload Captcha</a>
+                <input type="hidden" name="csrf_token" value="<?= Csrf::makeToken(); ?>" />
                 <input type="submit" value="Register" />
         </div>
         <div id="refUser">

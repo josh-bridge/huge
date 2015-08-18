@@ -26,16 +26,24 @@ ini_set('session.cookie_httponly', 1);
  * This is used by the core/Config class.
  */
 
-$site_name = 'TestSite';
+$otherConfig = array(
+	'HTTPS_ENABLED' => true,
+	'SITE_NAME' => 'TestSite',
+	'HTTPS_PORT' => 443
+);
 
-return array(
+$config = array(
 	/**
 	 * Configuration for: Base URL
 	 * This detects your URL/IP incl. sub-folder automatically. You can also deactivate auto-detection and provide the
 	 * URL manually. This should then look like 'http://192.168.33.44/' ! Note the slash in the end.
 	 */
 	'URL' => 'http://' . $_SERVER['HTTP_HOST'] . str_replace('public', '', dirname($_SERVER['SCRIPT_NAME'])),
-	'SITE_NAME' => $site_name,
+
+	'HTTPS_URL' => ($otherConfig['HTTPS_ENABLED'] ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . str_replace('public', '', dirname($_SERVER['SCRIPT_NAME'])),
+
+	'DOC_ROOT' => str_replace('public', '', dirname($_SERVER['SCRIPT_NAME'])),
+
 	/**
 	 * Configuration for: Folders
 	 * Usually there's no reason to change this.
@@ -98,7 +106,7 @@ return array(
 	'COOKIE_RUNTIME' => 1209600,
 	'COOKIE_PATH' => '/',
     'COOKIE_DOMAIN' => "",
-    'COOKIE_SECURE' => false,
+    'COOKIE_SECURE' => $otherConfig['HTTPS_ENABLED'],
     'COOKIE_HTTP' => true,
     'SESSION_RUNTIME' => 604800,
 	/**
@@ -111,7 +119,7 @@ return array(
 	'USE_GRAVATAR' => false,
 	'GRAVATAR_DEFAULT_IMAGESET' => 'mm',
 	'GRAVATAR_RATING' => 'pg',
-	'AVATAR_SIZE' => 44,
+	'AVATAR_SIZE' => 100,
 	'AVATAR_JPEG_QUALITY' => 85,
 	'AVATAR_DEFAULT_IMAGE' => 'default.jpg',
     /**
@@ -145,15 +153,18 @@ return array(
 	 */
 	'EMAIL_PASSWORD_RESET_URL' => 'login/verifypasswordreset',
 	'EMAIL_PASSWORD_RESET_FROM_EMAIL' => 'no-reply@example.com',
-	'EMAIL_PASSWORD_RESET_FROM_NAME' => $site_name,
-	'EMAIL_PASSWORD_RESET_SUBJECT' => 'Password reset for '.$site_name,
+	'EMAIL_PASSWORD_RESET_FROM_NAME' => $otherConfig['SITE_NAME'],
+	'EMAIL_PASSWORD_RESET_SUBJECT' => 'Password reset for '.$otherConfig['SITE_NAME'],
 	'EMAIL_PASSWORD_RESET_CONTENT' => 'Please click on this link to reset your password: ',
 	'EMAIL_VERIFICATION_URL' => 'login/verify',
 	'EMAIL_VERIFICATION_FROM_EMAIL' => 'no-reply@example.com',
 	'EMAIL_VERIFICATION_FROM_NAME' => 'My Project',
-	'EMAIL_VERIFICATION_SUBJECT' => 'Account activation for '.$site_name,
+	'EMAIL_VERIFICATION_SUBJECT' => 'Account activation for '.$otherConfig['SITE_NAME'],
 	'EMAIL_VERIFICATION_CONTENT' => 'Please click on this link to activate your account: ',
 
 	'DISCOUNT_LEVEL_1_NAME' => 'Basic discount',
 	'DISCOUNT_LEVEL_1_LEVEL' => 10
 );
+
+
+return array_merge($config, $otherConfig);

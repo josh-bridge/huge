@@ -35,15 +35,14 @@ class LoginController extends Controller
      */
     public function login()
     {
-         // check if csrf token is valid
-        if (!Csrf::isTokenValid()) {
-            self::logout();
-        }
+        // check if csrf token is valid        
+        if (!Csrf::isTokenValid()) self::logout();    
 
         // perform the login method, put result (true or false) into $login_successful
-        $login_successful = LoginModel::login(
-            Request::post('user_name'), Request::post('user_password'), Request::post('set_remember_me_cookie')
-        );
+        $login_successful = LoginModel::login(Request::post('user_name'), Request::post('user_password'), Request::post('set_remember_me_cookie'));
+
+        //Session::add('print_r', $login_successful);
+        //$this->View->render('login/index', array());
 
         // check login status: if true, then redirect user login/showProfile, if false, then to login form again
         if ($login_successful) {
@@ -53,7 +52,7 @@ class LoginController extends Controller
                 Redirect::to('dashboard/index');
             }
         } else {
-            Redirect::to('login/index');
+            Redirect::to('login');
         }
     }
 
@@ -97,7 +96,7 @@ class LoginController extends Controller
         $user_main_details = array(
             'user_name' => Session::get('user_name'),
             'user_email' => Session::get('user_email'),
-            'user_gravatar_image_url' => Session::get('user_gravatar_image_url'),
+            'user_refcode' => Session::get('user_refcode'),
             'user_avatar_file' => Session::get('user_avatar_file'),
             'user_account_type' => Session::get('user_account_type')
         );
@@ -168,7 +167,7 @@ class LoginController extends Controller
     {
         Auth::checkAuthentication();
         $this->View->render('login/editAvatar', array(
-            'avatar_file_path' => AvatarModel::getPublicUserAvatarFilePathByUserId(Session::get('user_id'))
+            'avatar_file_path' => AvatarModel::getPublicAvatarOfUser(Session::get('user_name'), Session::get('user_has_avatar'))
         ));
     }
 
@@ -236,9 +235,6 @@ class LoginController extends Controller
         if (LoginModel::isUserLoggedIn()) {
             Redirect::home();
         } else {
-            $array = LoginModel::form_feedback_array();
-            $input_data = [];
-            
             if(isset($ref) && $ref == 'ref' && isset($refCode) && preg_match('/^[a-zA-Z0-9]{3,15}$/', $refCode)) {
                 $input_data = RegistrationModel::userByRefCode($refCode);
 
@@ -256,6 +252,25 @@ class LoginController extends Controller
         }
     }
 
+    /**
+     * Register page action
+     * POST-request after form submit
+     */
+    public function register_action()
+    {
+        
+        // check if csrf token is valid        
+        if (!Csrf::isTokenValid()) self::logout();
+
+        $registration_successful = RegistrationModel::registerNewUser();
+
+        if ($registration_successful) {
+            Redirect::to('login/index');
+        } else {
+            Redirect::to('login/register');
+        }
+    }
+
     /*
     public function genRefCode() {
         $this->View->renderWithoutHeaderAndFooter('login/genRefCode', array('refCode' => RegistrationModel::refCodeGenerate()));
@@ -267,21 +282,6 @@ class LoginController extends Controller
         $this->View->renderWithoutHeaderAndFooter('login/genCardNum', array('cardNum' => RegistrationModel::cardNumGenerate()));
     }
     */
-
-    /**
-     * Register page action
-     * POST-request after form submit
-     */
-    public function register_action()
-    {
-        $registration_successful = RegistrationModel::registerNewUser();
-
-        if ($registration_successful) {
-            Redirect::to('login/index');
-        } else {
-            Redirect::to('login/register');
-        }
-    }
 
     /**
      * Verify user after activation mail link opened
@@ -368,7 +368,6 @@ class LoginController extends Controller
      */
     public function changePassword_action()
     {
-        
         Auth::checkAuthentication();
 
         // check if csrf token is valid
@@ -381,20 +380,23 @@ class LoginController extends Controller
             Request::post('user_password_new'), Request::post('user_password_repeat')
         );
 
-        if($result)
+        if($result) {
+            session_regenerate_id(true);
             Redirect::to('dashboard/index');
-        else
+        } else
             Redirect::to('login/changePassword');
     }
 
 
-    public function changeUserDetails() {
+    public function changeUserDetails() 
+    {
         Auth::checkAuthentication();
 
         $this->View->render('login/changeUserDetails', array_merge(Session::get('user_details'), LoginModel::form_feedback_array()));
     }
 
-    public function changeUserDetails_action() {
+    public function changeUserDetails_action() 
+    {
         Auth::checkAuthentication();
 
         // check if csrf token is valid
@@ -410,7 +412,7 @@ class LoginController extends Controller
             trim(strip_tags(Request::post('user_addrline1'))), 
             trim(strip_tags(Request::post('user_addrline2'))),
             trim(strip_tags(Request::post('user_addrline3'))), 
-            trim(strip_tags(Request::post('user_postcode'))),
+            strtoupper(trim(strip_tags(Request::post('user_postcode')))),
             trim(strip_tags(Request::post('user_city'))), 
             trim(strip_tags(Request::post('user_country'))), 
             trim(strip_tags(Request::post('user_telephone'))),
@@ -424,14 +426,16 @@ class LoginController extends Controller
             Redirect::to('login/changeUserDetails');
     }
 
-    public function userSearchByName() {
+    public function userSearchByName() 
+    {
         $searchTerm = Request::post('searchTerm') ? trim(strip_tags(Request::post('searchTerm'))) : NULL;
         $results = Request::post('results') ? intval(trim(strip_tags(Request::post('results')))) : NULL;
 
         if($searchTerm != null) {$this->View->renderJSON(UserModel::searchUsersByName($searchTerm, $results));}
     }
 
-    public function userSearchByRefCode() {
+    public function userSearchByRefCode() 
+    {
         $refCode = Request::post('refCode') ? trim(strip_tags(Request::post('refCode'))) : NULL;
         $result = RegistrationModel::userByRefCode($refCode);
 

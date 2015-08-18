@@ -9,8 +9,6 @@
 
 class RegistrationModel
 {
-    private static $formattedDOB;
-
     /**
      * Handles the entire registration process for DEFAULT users (not for people who register with
      * 3rd party services, like facebook) and creates a new user in the database if everything is fine
@@ -20,8 +18,6 @@ class RegistrationModel
 
     public static function registerNewUser()
     {
-        // TODO this could be written simpler and cleaner
-
         // clean the input
         $user_name = strtolower(trim(strip_tags(Request::post('user_name'))));
         $user_email = strtolower(trim(strip_tags(Request::post('user_email'))));
@@ -43,7 +39,6 @@ class RegistrationModel
 
         $user_ref_code = trim(strip_tags(Request::post('user_ref_code')));
         $user_ref_username = strtolower(trim(strip_tags(Request::post('user_ref_username'))));
-
 
         // stop registration flow if registrationInputValidation() returns false (= anything breaks the input check rules)
         $validation_result = self::registrationInputValidation(
@@ -70,34 +65,11 @@ class RegistrationModel
             $user_ref_username
         );
 
-        if (!$validation_result['result']) {
-            return false;
-        }
+        if (!$validation_result['result']) return false;
 
         // crypt the password with the PHP 5.5's password_hash() function, results in a 60 character hash string.
         // @see php.net/manual/en/function.password-hash.php for more, especially for potential options
         $user_password_hash = password_hash($user_password_new, PASSWORD_DEFAULT);
-
-       // make return a bool variable, so both errors can come up at once if needed
-        $return = true;
-        // check if username already exists
-        if (UserModel::doesUsernameAlreadyExist($user_name)) {
-            Session::add('feedback_negative', Text::get('FEEDBACK_USERNAME_ALREADY_TAKEN'));
-            Session::add('form_feedback_user_name', 'formerror');
-            Session::add('form_feedback_error_captcha', 'formredo');
-            Session::add('form_feedback_user_password', 'formredo');
-            $return = false;
-        }
-        // check if email already exists
-        if (UserModel::doesEmailAlreadyExist($user_email)) {
-            Session::add('feedback_negative', Text::get('FEEDBACK_USER_EMAIL_ALREADY_TAKEN'));
-            Session::add('form_feedback_user_email', 'formerror');
-            Session::add('form_feedback_error_captcha', 'formredo');
-            Session::add('form_feedback_user_password', 'formredo');
-            $return = false;
-        }
-        // if Username or Email were false, return false  
-        if(!$return) return false;
 
         // generate random hash for email verification (40 char string)
         $user_activation_hash = sha1(uniqid(mt_rand(), true));
@@ -125,9 +97,6 @@ class RegistrationModel
         } else if($validation_result['new_data']['user_introducer_id'] == null) {
             $validation_result['new_data']['user_introducer_id'] = Config::get('DEFAULT_INTRODUCER_ID');
         }
-
-
-
 
         // write user data to database
         if (!self::writeNewUserToDatabase(
@@ -226,194 +195,84 @@ class RegistrationModel
         $result = array();
 
         // perform all necessary checks
-
-        if (!CaptchaModel::checkCaptcha($captcha)) {
-            Session::add('feedback_negative', Text::get('FEEDBACK_CAPTCHA_WRONG'));
-            Session::add('form_feedback_error_captcha', 'formerror');
-            $result[0] = false;
-        } else {
-            $result[0] = true;
-        }
-
-        $validateDetails = Self::validateUserDetails($user_firstname,$user_lastname,$user_dob,$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business);
+        $validateCaptcha = CaptchaModel::checkCaptcha($captcha);
+        $validateUserData = Self::validateUserData($user_name, $user_email, $user_password_new, $user_password_repeat);
+        $validateUserDetails = Self::validateUserDetails($user_firstname,$user_lastname,$user_dob,$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business);
         $validateRef = Self::validateRef($user_ref_code, $user_ref_username);
 
-        $result[1] = Self::validateUserName($user_name);
-        $result[2] = Self::validateUserEmail($user_email);
-        $result[3] = Self::validateUserPassword($user_password_new, $user_password_repeat);
-        $result[4] = $validateDetails['result'];
-        $result[5] = $validateRef['result'];
+        if($validateCaptcha AND $validateUserData['result'] AND $validateUserDetails['result'] AND $validateRef['result']) {
+            return Self::validateFeedbackArr(true, array('user_introducer_id' => $validateRef['new_data']['user_introducer_id'], 'user_dob' => $validateUserDetails['new_data']['user_dob']));
+        } else {
+            if(!$validateUserData['result'] || !$validateUserDetails['result'] || !$validateRef['result']) {
+                Session::add('form_feedback_error_captcha', 'formredo');
+            } else if (!$validateCaptcha) {
+                Session::add('feedback_negative', Text::get('FEEDBACK_CAPTCHA_WRONG'));
+                Session::add('form_feedback_error_captcha', 'formerror');
+            }
 
-        if($result[0] AND $result[1] AND $result[2] AND $result[3] AND $result[4] AND $result[5]) {
-            return Self::validateFeedbackArr(true, array('user_introducer_id' => $validateRef['new_data']['user_introducer_id'], 'user_dob' => $validateDetails['new_data']['user_dob']));
+            if(null === Session::get('form_feedback_user_password')) Session::add('form_feedback_user_password', 'formredo');
+            if(in_array('reqfieldempty', $validateUserDetails['errors'])) 
+                Session::add('feedback_negative', Text::get('FEEDBACK_REQUIRED_FIELDS_EMPTY'));
+
+            return Self::validateFeedbackArr(false);
         }
-
-        if(Session::get('reqfieldempty') == true) 
-            Session::add('feedback_negative', Text::get('FEEDBACK_REQUIRED_FIELDS_EMPTY'));   
-
-        if($result[2]) Session::add('form_feedback_user_password', 'formredo');
-        if($result[0]) Session::add('form_feedback_error_captcha', 'formredo');
-
-        // otherwise, return false
-        return Self::validateFeedbackArr(false);
-    }
-
-    public static function validateRef ($user_ref_code, $user_ref_username) 
-    {
-        $empty[0] = false;
-        $empty[1] = false;
-        if(empty($user_ref_code) || $user_ref_code == null) $empty[0] = true;
-        if(empty($user_ref_username) || $user_ref_username == null) $empty[1] = true;
-
-        $user_ref_username_pattern = preg_match('/^[a-zA-Z][a-zA-Z0-9-_\.]{1,64}$/', $user_ref_username);
-        $user_ref_code_pattern = preg_match('/^[a-zA-Z0-9]{3,15}$/', $user_ref_code);
-
-        if($empty[0] && $empty[1]) return Self::validateFeedbackArr(true, array('user_introducer_id' => null), 'empty');
-        
-        $ref_code_exists = Self::isAlreadyExists('users', 'user_refcode', $user_ref_code);
-        if($ref_code_exists) $username_via_ref = UserModel::getUserDataByRefCode($user_ref_code)->user_name;
-
-        $ref_user_name_exists = UserModel::doesUsernameAlreadyExist($user_ref_username);
-
-        if($empty[0]) {
-            if(!$ref_user_name_exists) return Self::validateFeedbackArr(false, array('user_introducer_id' => null), 'user_ref_username_invalid');
-        } else if($empty[1]) {
-            if(!$ref_code_exists) return Self::validateFeedbackArr(false, array('user_introducer_id' => null), 'user_ref_code_invalid');
-        } else if(!$user_ref_code_pattern && !$user_ref_username_pattern) {
-            return Self::validateFeedbackArr(false, array('user_introducer_id' => null), 'pattern_invalid');
-        } else if(!$ref_code_exists && !$ref_user_name_exists) {
-            return Self::validateFeedbackArr(false, array('user_introducer_id' => null), 'invalid');
-        } else if (!$user_ref_code_pattern && $user_ref_username_pattern && $ref_user_name_exists) {
-            return Self::validateFeedbackArr(true, array('user_introducer_id' => UserModel::getUserIdByUsername($user_ref_username)));
-        } else if ($user_ref_code_pattern && !$user_ref_username_pattern && $ref_code_exists) {
-            return Self::validateFeedbackArr(true, array('user_introducer_id' => UserModel::getUserIdByUsername($username_via_ref)));
-        }  else if ($ref_code_exists && $ref_user_name_exists && $username_via_ref == $user_ref_username) {
-            return Self::validateFeedbackArr(true, array('user_introducer_id' => UserModel::getUserIdByUsername($user_ref_username)));
-        } else if (!$ref_user_name_exists && $ref_code_exists) {
-            return Self::validateFeedbackArr(true, array('user_introducer_id' => UserModel::getUserIdByUsername($username_via_ref)));       
-        } else if ($ref_user_name_exists) {
-            return Self::validateFeedbackArr(true, array('user_introducer_id' => UserModel::getUserIdByUsername($user_ref_username)));
-        }
-
-        return Self::validateFeedbackArr(false, false, 'unknown_reference_error');
     }
 
     /**
-     * Validates the username
+     * Validates the user data
      *
      * @param $user_name
-     * @return bool
-     */
-    public static function validateUserName($user_name)
-    {
-        if (empty($user_name)) {
-            Session::add('reqfieldempty', true);
-            Session::add('form_feedback_user_name', 'formerror');
-
-            return false;
-        }
-
-        // if username is too short (2), too long (64) or does not fit the pattern (aZ09)
-        if (!preg_match('/^[a-zA-Z][a-zA-Z0-9-_\.]{1,64}$/', $user_name)) {
-            Session::add('feedback_negative', Text::get('FEEDBACK_USERNAME_DOES_NOT_FIT_PATTERN'));
-            Session::add('form_feedback_user_name', 'formerror');
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Validates the email
-     *
      * @param $user_email
-     * @return bool
-     */
-    public static function validateUserEmail($user_email)
-    {
-        if (empty($user_email)) {
-            Session::add('reqfieldempty', true);
-            Session::add('form_feedback_user_email', 'formerror');
-
-            return false;
-        }
-
-        // validate the email with PHP's internal filter
-        // side-fact: Max length seems to be 254 chars
-        // @see http://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address
-        if (!filter_var($user_email, FILTER_VALIDATE_EMAIL)) {
-            Session::add('feedback_negative', Text::get('FEEDBACK_EMAIL_DOES_NOT_FIT_PATTERN'));
-            Session::add('form_feedback_user_email', 'formerror');
-
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Validates the password
-     *
      * @param $user_password_new
      * @param $user_password_repeat
-     *
-     * @return bool
-     */
-    public static function validateUserPassword($user_password_new, $user_password_repeat)
-    {
-        if (empty($user_password_new) OR empty($user_password_repeat)) {
-            Session::add('reqfieldempty', true);
-            Session::add('form_feedback_user_password', 'formerror');
-
-            return false;
-        }
-
-        if ($user_password_new !== $user_password_repeat) {
-            Session::add('feedback_negative', Text::get('FEEDBACK_PASSWORD_REPEAT_WRONG'));
-            Session::add('form_feedback_user_password', 'formerror');
-
-            return false;
-        }
-
-        if (strlen($user_password_new) < 6) {
-            Session::add('feedback_negative', Text::get('FEEDBACK_PASSWORD_TOO_SHORT'));
-            Session::add('form_feedback_user_password', 'formerror');
-
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Validates the user details
-     *
-     * @param $user_firstname
-     * @param $user_lastname
-     * @param $user_dob
-     * @param $user_addrline1
-     * @param $user_addrline2
-     * @param $user_addrline3
-     * @param $user_postcode
-     * @param $user_city
-     * @param $user_country
-     * @param $user_telephone
-     * @param $user_mobile
-     * @param $user_business
      * 
      * @return bool
      */
-    public static function validateUserDetails($user_firstname,$user_lastname,$user_dob,$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business)
+
+    public static function validateUserData($user_name, $user_email, $user_password_new, $user_password_repeat) 
     {
         $result = true;
         $valresult = true;
 
-        $validateDOB = Self::validateDOB($user_dob);
+        if (empty($user_name)) {Session::add('form_feedback_user_name', 'formerror'); $result = false;}
+            // if username is too short (2), too long (64) or does not fit the pattern (aZ09)
+            else if (!preg_match('/^[a-zA-Z][a-zA-Z0-9-_\.]{1,64}$/', $user_name)) {Session::add('feedback_negative', Text::get('FEEDBACK_USERNAME_DOES_NOT_FIT_PATTERN')); Session::add('form_feedback_user_name', 'formerror'); $valresult = false;}
+            // check if username already exists
+            else if (UserModel::doesUsernameAlreadyExist($user_name)) {Session::add('feedback_negative', Text::get('FEEDBACK_USERNAME_ALREADY_TAKEN')); Session::add('form_feedback_user_name', 'formerror'); $valresult = false;}
+        
+        if (empty($user_email)) {Session::add('form_feedback_user_email', 'formerror'); $result = false;}
+            // validate the email with PHP's internal filter
+            // side-fact: Max length seems to be 254 chars
+            // @see http://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address
+            else if (!filter_var($user_email, FILTER_VALIDATE_EMAIL)) {Session::add('feedback_negative', Text::get('FEEDBACK_EMAIL_DOES_NOT_FIT_PATTERN')); Session::add('form_feedback_user_email', 'formerror'); $valresult = false;}
+            // check if email already exists
+            else if (UserModel::doesEmailAlreadyExist($user_email)) {Session::add('feedback_negative', Text::get('FEEDBACK_USER_EMAIL_ALREADY_TAKEN')); Session::add('form_feedback_user_email', 'formerror'); $valresult = false;}
+       
+        if (empty($user_password_new) OR empty($user_password_repeat)) {Session::add('form_feedback_user_password', 'formerror'); $result = false;}
+            else if ($user_password_new !== $user_password_repeat) {Session::add('feedback_negative', Text::get('FEEDBACK_PASSWORD_REPEAT_WRONG')); Session::add('form_feedback_user_password', 'formerror'); $valresult = false;}
+            else if (strlen($user_password_new) < 6) {Session::add('feedback_negative', Text::get('FEEDBACK_PASSWORD_TOO_SHORT')); Session::add('form_feedback_user_password', 'formerror'); $valresult = false;}
 
+        if (!$result) {
+            return Self::validateFeedbackArr(false, false, 'reqfieldempty');
+        } else if(!$valresult) {
+            return Self::validateFeedbackArr(false);
+        } else if($result && $valresult) {
+            return Self::validateFeedbackArr(true);
+        }
+
+        return Self::validateFeedbackArr(false, false, 'did_not_validate');
+    }
+
+    public static function validateUserDetails($user_firstname,$user_lastname,$user_dob,$user_addrline1,$user_addrline2,$user_addrline3,$user_postcode,$user_city,$user_country,$user_telephone,$user_mobile,$user_business)
+    {
+        $result = true;
+        $valresult = true;
+        
         if (empty($user_firstname)) {Session::add('form_feedback_user_firstname', 'formerror'); $result = false;}
             else if (!preg_match('/^[a-zA-Z][a-zA-Z- ]{1,64}$/', $user_firstname)) {Session::add('form_feedback_user_firstname', 'formerror'); Session::add('feedback_negative', Text::get('FEEDBACK_FIRSTNAME_DOES_NOT_FIT_PATTERN')); $valresult = false;} 
         if (empty($user_lastname)) {Session::add('form_feedback_user_lastname', 'formerror'); $result = false;}
             else if (!preg_match('/^[a-zA-Z][a-zA-Z- ]{1,64}$/', $user_lastname)) {Session::add('form_feedback_user_lastname', 'formerror'); Session::add('feedback_negative', Text::get('FEEDBACK_LASTNAME_DOES_NOT_FIT_PATTERN')); $valresult = false;} 
+        $validateDOB = Self::validateDOB($user_dob);
         if (empty($user_dob)) {Session::add('form_feedback_user_dob', ' formerror'); $result = false;}
             else if(!$validateDOB['result']) {Session::add('form_feedback_user_dob', ' formerror'); $valresult = false;}
         if (empty($user_addrline1)) {Session::add('form_feedback_user_addrline1', 'formerror'); $result = false;}
@@ -452,7 +311,6 @@ class RegistrationModel
         }
 
         if (!$result) {
-            Session::add('reqfieldempty', true);
             return Self::validateFeedbackArr(false, false, 'reqfieldempty');
         } else if(!$valresult) {
             return Self::validateFeedbackArr(false);
@@ -461,16 +319,6 @@ class RegistrationModel
         }
 
         return Self::validateFeedbackArr(false, false, 'did_not_validate');
-    }
-
-    public static function validateFeedbackArr($result, $new_data = null, $errors = null)
-    {
-        if($new_data == null) $new_data = false;
-        if($errors == null) $errors = false;
-
-        if(!is_array($errors) && $errors != false) $errors = array($errors);
-
-        return array('result' => $result, 'new_data' => $new_data, 'errors' => $errors);
     }
 
     public static function validateDOB($user_dob) {
@@ -510,13 +358,48 @@ class RegistrationModel
             return Self::validateFeedbackArr(false, false, 'FEEDBACK_DOB_AGE_TOO_LOW');
         }
 
-        Self::$formattedDOB = $formattedDate;
         return Self::validateFeedbackArr(true, array('user_dob' => $formattedDate));
     }
 
-    public static function returnFormattedDOB() 
+    public static function validateRef ($user_ref_code, $user_ref_username) 
     {
-        return isset(Self::$formattedDOB) ? Self::$formattedDOB : null;
+        $empty[0] = (empty($user_ref_code) || $user_ref_code == null) ? true : false;
+        $empty[1] = (empty($user_ref_username) || $user_ref_username == null) ? true : false;
+
+        $user_ref_username_pattern = preg_match('/^[a-zA-Z][a-zA-Z0-9-_\.]{1,64}$/', $user_ref_username);
+        $user_ref_code_pattern = preg_match('/^[a-zA-Z0-9]{3,15}$/', $user_ref_code);
+
+        if($empty[0] && $empty[1]) return Self::validateFeedbackArr(true, array('user_introducer_id' => null), 'empty');
+        
+        $ref_code_exists = Self::isAlreadyExists('users', 'user_refcode', $user_ref_code);
+        $ref_user_name_exists = UserModel::doesUsernameAlreadyExist($user_ref_username);
+
+        if($empty[0]) {
+            if(!$ref_user_name_exists) return Self::validateFeedbackArr(false, array('user_introducer_id' => null), 'user_ref_username_invalid');
+        } else if($empty[1]) {
+            if(!$ref_code_exists) return Self::validateFeedbackArr(false, array('user_introducer_id' => null), 'user_ref_code_invalid');
+            Session::add('feedback_negative', 'Ref code invalid');
+        } else if(!$user_ref_code_pattern && !$user_ref_username_pattern) {
+            return Self::validateFeedbackArr(false, array('user_introducer_id' => null), 'pattern_invalid');
+        } else if(!$ref_code_exists && !$ref_user_name_exists) {
+            return Self::validateFeedbackArr(false, array('user_introducer_id' => null), 'invalid');
+        } else if ($ref_user_name_exists) {
+            return Self::validateFeedbackArr(true, array('user_introducer_id' => UserModel::getUserIdByUsername($user_ref_username)));
+        } else if ($ref_code_exists) {
+            return Self::validateFeedbackArr(true, array('user_introducer_id' => UserModel::getUserIdByRefCode($user_ref_code)));
+        }
+
+        return Self::validateFeedbackArr(false, false, 'unknown_ref_error');
+    }
+
+    public static function validateFeedbackArr($result, $new_data = null, $errors = null)
+    {
+        if($new_data === null) $new_data = false;
+        if($errors === null) $errors = false;
+
+        if(!is_array($errors) && $errors != false) $errors = array($errors);
+
+        return array('result' => $result, 'new_data' => $new_data, 'errors' => $errors);
     }
 
     /**
@@ -575,9 +458,7 @@ class RegistrationModel
             ':user_provider_type' => 'DEFAULT'
         ));
 
-        if ($query->rowCount() == 1) {
-            $result[0] = true;
-        }
+        if($query->rowCount() == 1) $result[0] = true;
 
         $sql2 = "INSERT INTO users_details (
             user_id,
@@ -626,12 +507,9 @@ class RegistrationModel
             ':user_business' => $user_business
         ));
 
-        if ($query2->rowCount() == 1) {
-            $result[1] = true;
-        }
+        if($query2->rowCount() == 1) $result[1] = true;
 
-        if($result[0] && $result[1])
-            return true;
+        if($result[0] && $result[1]) return true;
 
         return false;
     }
@@ -723,11 +601,7 @@ class RegistrationModel
                     } while (!$finished);
                     $finished = false;
                 }
-
-                $repeat = Self::isAlreadyExists('users', 'user_cardno', $rand[0].$rand[1]) ? true : false;
-
-            } while ($repeat);
-
+            } while (Self::isAlreadyExists('users', 'user_cardno', $rand[0].$rand[1]));
             return $rand[0].$rand[1];
         }
 
@@ -737,26 +611,13 @@ class RegistrationModel
     public static function refCodeGenerate($length = null) {
         if($length == null) $length = 4;
 
-        $chrList = '0123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ';
+        do {
+            $chrList = '0123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ';
+            $chrRepeat = $length; // Times to repeat the seed string
+            $result = substr(str_shuffle(str_repeat($chrList, $chrRepeat)),0,$length); 
+        } while (Self::isAlreadyExists('users', 'user_refcode', $result));
 
-        $chrRepeat = $length; // Times to repeat the seed string
-
-        // The ONE LINE random command with the above variables.
-        return substr(str_shuffle(str_repeat($chrList, $chrRepeat)),0,$length);
-    }
-
-    public static function isAlreadyExists($table, $column, $value) {
-        $database = DatabaseFactory::getFactory()->getConnection();
-
-        $sql = "SELECT ".$column." FROM ".$table." WHERE BINARY ".$column." = :value LIMIT 1";
-        $query = $database->prepare($sql);
-
-        $query->execute(array(':value' => $value));
-
-        if($query->rowCount() != 0)
-            return true;
-        
-        return false;
+        return $result;
     }
 
     public static function userByRefCode($refCode) {
@@ -783,5 +644,19 @@ class RegistrationModel
         }
 
         return $result;
+    }
+
+    public static function isAlreadyExists($table, $column, $value) {
+        $database = DatabaseFactory::getFactory()->getConnection();
+
+        $sql = "SELECT ".$column." FROM ".$table." WHERE BINARY ".$column." = :value LIMIT 1";
+        $query = $database->prepare($sql);
+
+        $query->execute(array(':value' => $value));
+
+        if($query->rowCount() != 0)
+            return true;
+        
+        return false;
     }
 }
