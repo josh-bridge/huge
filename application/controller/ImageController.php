@@ -21,8 +21,8 @@ class ImageController extends Controller
 
             $a0 = Request::get(0);
             $a1 = Request::get(1);
-            $user_has_avatar = null;
 
+            $user_has_avatar = null;
             if (isset($a1)) $user_has_avatar = 1;
             else if (isset($a0)) $user_has_avatar = 0;
 

@@ -258,7 +258,6 @@ class LoginController extends Controller
      */
     public function register_action()
     {
-        
         // check if csrf token is valid        
         if (!Csrf::isTokenValid()) self::logout();
 

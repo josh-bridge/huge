@@ -124,7 +124,6 @@ class View
 
         if(Session::get('print_r') != null)
             Session::remove('print_r');
-
     }
 
     /**

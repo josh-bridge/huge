@@ -19,8 +19,20 @@ class AdminController extends Controller
      */
     public function index()
     {
-	    $this->View->render('admin/index', array(
-			    'users' => UserModel::getPublicProfilesOfAllUsers())
+        $numberOfRows = 15;        
+
+        $page = Request::get('page');
+
+        if(isset($page)) $page = intval($page);
+        else $page = 1;
+
+        if(is_numeric($page) && $page >= 1) 
+            $start = $numberOfRows * ($page - 1);
+        else
+            $start = 0;    
+
+        $this->View->render('admin/index', array(
+			    'users' => UserModel::getPublicProfilesOfAllUsersLimit($start, $numberOfRows))
 	    );
     }
 

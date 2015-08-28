@@ -272,9 +272,8 @@ class RegistrationModel
             else if (!preg_match('/^[a-zA-Z][a-zA-Z- ]{1,64}$/', $user_firstname)) {Session::add('form_feedback_user_firstname', 'formerror'); Session::add('feedback_negative', Text::get('FEEDBACK_FIRSTNAME_DOES_NOT_FIT_PATTERN')); $valresult = false;} 
         if (empty($user_lastname)) {Session::add('form_feedback_user_lastname', 'formerror'); $result = false;}
             else if (!preg_match('/^[a-zA-Z][a-zA-Z- ]{1,64}$/', $user_lastname)) {Session::add('form_feedback_user_lastname', 'formerror'); Session::add('feedback_negative', Text::get('FEEDBACK_LASTNAME_DOES_NOT_FIT_PATTERN')); $valresult = false;} 
-        $validateDOB = Self::validateDOB($user_dob);
         if (empty($user_dob)) {Session::add('form_feedback_user_dob', ' formerror'); $result = false;}
-            else if(!$validateDOB['result']) {Session::add('form_feedback_user_dob', ' formerror'); $valresult = false;}
+            else if(!Self::validateDOB($user_dob)['result']) {Session::add('form_feedback_user_dob', ' formerror'); $valresult = false;}
         if (empty($user_addrline1)) {Session::add('form_feedback_user_addrline1', 'formerror'); $result = false;}
             else if (!preg_match('/^[a-zA-Z0-9][a-zA-Z0-9- \(\)]{1,64}$/', $user_addrline1)) {Session::add('form_feedback_user_addrline1', 'formerror'); Session::add('feedback_negative', Text::get('FEEDBACK_ADDRLINE1_DOES_NOT_FIT_PATTERN')); $valresult = false;} 
         if (empty($user_postcode)) {Session::add('form_feedback_user_postcode', 'formerror'); $result = false;}
@@ -583,6 +582,13 @@ class RegistrationModel
         return false;
     }
 
+    /**
+     * generates a card number at most even lengths (default 16 digits)
+     *
+     * @param int $length
+     *
+     * @return card number
+     */
     public static function cardNumGenerate($length = null) {
         $defaultLength = 16;
 
@@ -608,6 +614,14 @@ class RegistrationModel
         return 0;
     }
 
+    /**
+     * generates a ref code with any length (default 4) with a-zA-z0-9 NO I or l because they look 
+     *    too similar (in arial) and the ref code input is case sensitive
+     *
+     * @param int $length
+     *
+     * @return ref code
+     */
     public static function refCodeGenerate($length = null) {
         if($length == null) $length = 4;
 
@@ -620,6 +634,13 @@ class RegistrationModel
         return $result;
     }
 
+    /**
+     * gets user data & details by their ref code
+     *
+     * @param $refcode
+     *
+     * @return user data & details on success / bool on failure
+     */
     public static function userByRefCode($refCode) {
         if(Self::isAlreadyExists('users', 'user_refcode', $refCode)) {
             $userData = UserModel::getUserDataByRefCode($refCode);
@@ -646,6 +667,15 @@ class RegistrationModel
         return $result;
     }
 
+    /**
+     * generic checker to see if a set field already exists in any table/column/row
+     *
+     * @param $table
+     * @param $column
+     * @param $value
+     *
+     * @return bool success status
+     */
     public static function isAlreadyExists($table, $column, $value) {
         $database = DatabaseFactory::getFactory()->getConnection();
 

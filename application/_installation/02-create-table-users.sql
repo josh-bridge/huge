@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS `huge`.`users` (
   `user_name` varchar(64) COLLATE utf8_unicode_ci NOT NULL COMMENT 'user''s name, unique',
   `user_cardno` bigint(16) unsigned NOT NULL COMMENT 'Users card reference number',
   `user_password_hash` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL COMMENT 'user''s password in salted and hashed format',
-  `user_email` varchar(64) COLLATE utf8_unicode_ci NOT NULL COMMENT 'user''s email, unique',
+  `user_email` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT 'user''s email, unique',
   `user_refcode` varchar(15) COLLATE utf8_unicode_ci NOT NULL COMMENT 'users referral code',
   `user_introducer_id` int(11) NOT NULL DEFAULT '3' COMMENT 'id of user that introduced this user',
   `user_active` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'user''s activation status',
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `huge`.`users` (
 INSERT INTO `huge`.`users` (`user_id`, `session_id`, `user_name`, `user_cardno`, `user_password_hash`, `user_email`, `user_refcode`, `user_introducer_id`, `user_active`, `user_deleted`, `user_account_type`, `user_has_avatar`, `user_remember_me_token`, `user_creation_timestamp`, `user_suspension_timestamp`, `user_last_login_timestamp`, `user_failed_logins`, `user_last_failed_login`, `user_activation_hash`, `user_password_reset_hash`, `user_password_reset_timestamp`, `user_provider_type`) VALUES
 (1, NULL, 'demo', 0, '$2y$10$OvprunjvKOOhM1h9bzMPs.vuwGIsOqZbw88rzSyGCTJTcE61g5WXi', 'demo@demo.com', 'HZMj', 3, 1, 0, 2, 0, NULL, TIMESTAMP, NULL, NULL, 0, NULL, NULL, NULL, NULL, 'DEFAULT'),
 (2, NULL, 'demo2', 1, '$2y$10$OvprunjvKOOhM1h9bzMPs.vuwGIsOqZbw88rzSyGCTJTcE61g5WXi', 'demo2@demo.com', 't2G4', 3, 1, 0, 1, 0, NULL, TIMESTAMP, NULL, NULL, 0, NULL, NULL, NULL, NULL, 'DEFAULT'),
-(3, NULL, 'root', 2, '$2y$10$OvprunjvKOOhM1h9bzMPs.vuwGIsOqZbw88rzSyGCTJTcE61g5WXi', 'root@localhost', 'root', 3, 1, 0, 7, 0, NULL, TIMESTAMP, NULL, NULL, 0, NULL, NULL, NULL, NULL, 'DEFAULT');
+(3, NULL, 'root', 2, '$2y$10$qtsOotyFpt.b.7yaKQnWgeTv1wvFwGGGM5PFtEUaCKqi9boW7C2Z2', 'root@localhost', 'root', 3, 1, 0, 7, 0, NULL, TIMESTAMP, NULL, NULL, 0, NULL, NULL, NULL, NULL, 'DEFAULT');
 
 CREATE TABLE IF NOT EXISTS `huge`.`users_details` (
   `user_id` int(11) NOT NULL,

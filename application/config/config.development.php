@@ -28,11 +28,11 @@ ini_set('session.cookie_httponly', 1);
 
 $otherConfig = array(
 	'HTTPS_ENABLED' => true,
-	'SITE_NAME' => 'TestSite',
+	'SITE_NAME' => 'Magnet',
 	'HTTPS_PORT' => 443
 );
 
-$config = array(
+return array_merge($otherConfig, array(
 	/**
 	 * Configuration for: Base URL
 	 * This detects your URL/IP incl. sub-folder automatically. You can also deactivate auto-detection and provide the
@@ -158,13 +158,10 @@ $config = array(
 	'EMAIL_PASSWORD_RESET_CONTENT' => 'Please click on this link to reset your password: ',
 	'EMAIL_VERIFICATION_URL' => 'login/verify',
 	'EMAIL_VERIFICATION_FROM_EMAIL' => 'no-reply@example.com',
-	'EMAIL_VERIFICATION_FROM_NAME' => 'My Project',
+	'EMAIL_VERIFICATION_FROM_NAME' => $otherConfig['SITE_NAME'],
 	'EMAIL_VERIFICATION_SUBJECT' => 'Account activation for '.$otherConfig['SITE_NAME'],
 	'EMAIL_VERIFICATION_CONTENT' => 'Please click on this link to activate your account: ',
 
 	'DISCOUNT_LEVEL_1_NAME' => 'Basic discount',
 	'DISCOUNT_LEVEL_1_LEVEL' => 10
-);
-
-
-return array_merge($config, $otherConfig);
+));

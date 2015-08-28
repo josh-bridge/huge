@@ -44,6 +44,47 @@ class UserModel
     }
 
     /**
+     * Gets an array that contains all the users in the database. The array's keys are the user ids.
+     * Each array element is an object, containing a specific user's data.
+     * The avatar line is built using Ternary Operators, have a look here for more:
+     * @see http://davidwalsh.name/php-shorthand-if-else-ternary-operators
+     *
+     * @return array The profiles of all users with select numbers
+     */
+    public static function getPublicProfilesOfAllUsersLimit($start, $number)
+    {
+        $database = DatabaseFactory::getFactory()->getConnection();
+        $start = intval($start);
+        $number = intval($number);
+
+        $sql = "SELECT user_id, user_name, user_email, user_active, user_has_avatar, user_deleted FROM users LIMIT :start, :numb";
+        $query = $database->prepare($sql);
+
+        $query->bindParam(':start', $start, PDO::PARAM_INT);
+        $query->bindParam(':numb', $number, PDO::PARAM_INT);
+        $query->execute();
+
+        $all_users_profiles = array();
+
+        foreach ($query->fetchAll() as $user) {
+            // all elements of array passed to Filter::XSSFilter for XSS sanitation, have a look into
+            // application/core/Filter.php for more info on how to use. Removes (possibly bad) JavaScript etc from
+            // the user's values
+            array_walk_recursive($user, 'Filter::XSSFilter');
+
+            $all_users_profiles[$user->user_id] = new stdClass();
+            $all_users_profiles[$user->user_id]->user_id = $user->user_id;
+            $all_users_profiles[$user->user_id]->user_name = $user->user_name;
+            $all_users_profiles[$user->user_id]->user_email = $user->user_email;
+            $all_users_profiles[$user->user_id]->user_active = $user->user_active;
+            $all_users_profiles[$user->user_id]->user_deleted = $user->user_deleted;
+            $all_users_profiles[$user->user_id]->user_avatar_link = AvatarModel::getPublicAvatarOfUser($user->user_name, $user->user_has_avatar);
+        }
+
+        return $all_users_profiles;
+    }
+
+    /**
      * Gets a user's profile data, according to the given $user_id
      * @param int $user_id The user's id
      * @return mixed The selected user's profile
